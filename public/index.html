@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Área de catastro por grupo de trabajo</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--bd:#d9dde3;--tx:#1f2937;--mu:#6b7280;--ac:#1d6b4a;--ac2:#e8f3ee;--er:#b42318}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--ac);color:#fff}
+header h1{font-size:18px;margin:0;flex:1}
+button{font:inherit;padding:7px 14px;border:1px solid var(--bd);border-radius:6px;background:#fff;cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+.menu{display:flex;gap:4px;padding:8px 20px 0;background:#fff;border-bottom:1px solid var(--bd)}
+.menu button{border:0;border-bottom:3px solid transparent;border-radius:5px 5px 0 0;background:transparent;color:var(--mu)}
+.menu button.on{border-bottom-color:var(--ac);color:var(--ac);font-weight:600}
+.menu button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+main{padding:16px 20px;max-width:1300px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.card h2{font-size:14px;margin:0 0 10px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 14px}
+label{display:block;font-size:12px;color:var(--mu);margin-bottom:3px}
+input,select{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:5px;font:inherit}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tabs button{border-radius:6px 6px 0 0}
+.tabs button.on{background:var(--ac2);border-color:var(--ac);color:var(--ac);font-weight:600}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.bar input{max-width:260px}
+.sp{flex:1}
+.msg{padding:8px 12px;border-radius:6px;margin-bottom:12px}
+.msg.err{background:#fef3f2;color:var(--er);border:1px solid #fecdca}
+.msg.ok{background:var(--ac2);color:var(--ac);border:1px solid #b7dcc9}
+.wrap{overflow:auto;max-height:68vh;border:1px solid var(--bd);border-radius:6px}
+table{border-collapse:collapse;width:100%;background:#fff}
+th,td{padding:5px 10px;border-bottom:1px solid #edf0f3;white-space:nowrap}
+th{position:sticky;top:0;background:#eef1f4;text-align:left;cursor:pointer;user-select:none;z-index:1}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;background:var(--ac2);position:sticky}
+tr.ctl td{color:var(--mu);font-style:italic;background:#fafbfc}
+tbody tr:hover td{background:#f3f8f5}
+tr.selectable{cursor:pointer}
+tr.selectable:focus-visible td{outline:2px solid var(--ac);outline-offset:-2px}
+.foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;align-items:center}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx)}
+.chk input{width:auto}
+small{color:var(--mu)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Área de catastro por grupo de trabajo</h1>
+  <span id="estado" style="font-size:13px"></span>
+</header>
+<nav class="menu" id="menu" aria-label="Navegación principal">
+  <button type="button" class="on" data-view="resumen" aria-current="page">Resumen</button>
+  <button type="button" data-view="filtros">Filtros</button>
+  <button type="button" data-view="conexion">Conexión</button>
+</nav>
+<main>
+  <div id="msg"></div>
+
+  <section id="view-resumen">
+    <div class="tabs" id="tabs">
+      <button data-t="resumen" class="on">grupos_trabajo</button>
+      <button data-t="data_codigos_trabajo">data_codigos_trabajo</button>
+    </div>
+
+    <div id="v-resumen">
+      <div class="bar">
+        <input id="q" placeholder="Buscar cod_tra o delegado…">
+        <label class="chk"><input type="checkbox" id="soloAct"> Ocultar grupos sin área</label>
+        <span class="sp"></span><small id="cnt"></small>
+        <button id="btnCsv">Exportar CSV</button>
+      </div>
+      <div class="wrap"><table id="tbl"></table></div>
+    </div>
+
+    <div id="v-codigos" hidden>
+      <div class="card">
+        <h2>Buscar cañeros</h2>
+        <p><small>Puedes buscar por uno o ambos campos. Si completas ambos, se aplican los dos filtros.</small></p>
+        <form id="formCodigos">
+          <div class="grid">
+            <div>
+              <label for="codCa">cod_ca (código cañero)</label>
+              <input id="codCa" inputmode="numeric" autocomplete="off">
+            </div>
+            <div>
+              <label for="nomCa">nom_ca (nombre cañero)</label>
+              <input id="nomCa" autocomplete="off">
+            </div>
+          </div>
+          <div class="foot" style="justify-content:flex-start">
+            <button class="pri" id="btnSearchCodigos" type="submit">Buscar</button>
+            <button id="btnClearCodigos" type="button">Limpiar</button>
+            <span class="sp"></span><small id="codigosCount"></small>
+          </div>
+        </form>
+        <div id="codigosMsg" class="msg" role="status" aria-live="polite" hidden></div>
+      </div>
+
+      <div class="card" id="codigosMatchesPanel">
+        <h2>Coincidencias</h2>
+        <p><small>Selecciona una fila para ver todos los cañeros de su grupo en esta pestaña.</small></p>
+        <div class="wrap"><table id="codigosTable"></table></div>
+      </div>
+      <div class="card" id="codigosGroupPanel" hidden>
+        <div class="bar">
+          <h2 id="codigosGroupTitle"></h2>
+          <span class="sp"></span>
+          <button id="btnBackCodigos" type="button">Volver a coincidencias</button>
+        </div>
+        <p><small id="codigosGroupCount"></small></p>
+        <div id="codigosGroupMsg" class="msg" role="status" aria-live="polite" hidden></div>
+        <div class="wrap"><table id="codigosGroupTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-filtros" hidden>
+    <div class="card">
+      <h2>Filtros aplicados</h2>
+      <div class="grid" id="crit"></div>
+      <div class="foot" style="justify-content:flex-start">
+        <button class="pri" id="btnApply">Aplicar y ver resultados</button>
+        <button id="btnReset">Restablecer criterios</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-conexion" hidden>
+    <div class="card">
+      <h2>Conexión a PostgreSQL</h2>
+      <p>La conexión se configura solo en el servidor mediante el archivo local <code>.env</code>.</p>
+      <ol>
+        <li>Edita <code>.env</code> con los datos del servidor, base de datos y usuario.</li>
+        <li>Guarda el archivo y reinicia la aplicación con <code>npm start</code>.</li>
+        <li>Usa el botón para comprobar la conexión y las tablas requeridas.</li>
+      </ol>
+      <p><small>La contraseña no se muestra ni se envía al navegador. No compartas ni subas el archivo <code>.env</code>.</small></p>
+      <div class="foot" style="justify-content:flex-start">
+        <button class="pri" id="btnTest">Probar conexión</button>
+      </div>
+      <div id="connMsg" class="msg" role="status" aria-live="polite" hidden></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const DEF_CRIT = {ctrl_bio:'1',unidad03_min:0,cultivo1:'canha',cultivo2:'semilla',zafra:2026,
+  unidad03_excl:41594,financia:'IAG',anio1:2025,anio2:2026};
+const CRIT_LABELS = {ctrl_bio:'ctrl_bio',unidad03_min:'unidad_03 mayor a',cultivo1:'cultivo (1)',cultivo2:'cultivo (2)',
+  zafra:'zafra',unidad03_excl:'unidad_03 excluida (siembras)',financia:'financia (siembras)',
+  anio1:'Año siembra 1',anio2:'Año siembra 2'};
+
+const load = (k, d) => { try { return {...d, ...JSON.parse(localStorage.getItem(k)||'{}')}; } catch { return {...d}; } };
+localStorage.removeItem('conn');
+let crit = load('crit', DEF_CRIT);
+let data = null, sortKey = 'cod_tra', sortDir = 1, tab = 'resumen', selectedGroup = null;
+
+const fmt = (v, d=2) => v==null ? '' : Number(v).toLocaleString('es-BO',{minimumFractionDigits:d,maximumFractionDigits:d});
+const msg = (t, k='err') => $('#msg').innerHTML = t ? `<div class="msg ${k}">${t}</div>` : '';
+
+async function api(path, body) {
+  const options = body === undefined ? {method:'GET'} : {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body),
+  };
+  const r = await fetch(path, options);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'Error del servidor');
+  return j;
+}
+
+/* ---------- criterios ---------- */
+function drawCrit() {
+  $('#crit').innerHTML = Object.keys(DEF_CRIT).map(k =>
+    `<div><label>${CRIT_LABELS[k]}</label><input data-k="${k}" value="${crit[k]}"></div>`).join('');
+  document.querySelectorAll('#crit input').forEach(i => i.oninput = () => {
+    crit[i.dataset.k] = i.value; localStorage.setItem('crit', JSON.stringify(crit)); });
+}
+function showView(name) {
+  document.querySelectorAll('main > section').forEach(section => {
+    section.hidden = section.id !== `view-${name}`;
+  });
+  document.querySelectorAll('#menu button[data-view]').forEach(button => {
+    const active = button.dataset.view === name;
+    button.classList.toggle('on', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+}
+$('#menu').onclick = (e) => {
+  const button = e.target.closest('button[data-view]');
+  if (button) showView(button.dataset.view);
+};
+$('#btnReset').onclick = () => { crit = {...DEF_CRIT}; localStorage.setItem('crit', JSON.stringify(crit)); drawCrit(); };
+
+/* ---------- resumen ---------- */
+async function run() {
+  msg(''); $('#btnApply').disabled = true; $('#estado').textContent = 'Consultando…';
+  let succeeded = false;
+  try {
+    data = await api('/api/report', {criteria: crit});
+    $('#estado').textContent = 'Actualizado ' + new Date().toLocaleTimeString();
+    drawSummary();
+    succeeded = true;
+  } catch (e) { msg(e.message); $('#estado').textContent = 'Sin conexión'; }
+  $('#btnApply').disabled = false;
+  return succeeded;
+}
+const COLS = () => [
+  ['cod_tra','cod_tra',0,false],['delegado','Delegado',0,false],
+  ['s1','Siembra '+crit.anio1,2,true],['s2','Siembra '+crit.anio2,2,true],
+  ['rec','Recomendado',2,true],['tot','Área total (ha)',2,true]];
+function drawSummary() {
+  if (!data) { $('#tbl').innerHTML = ''; $('#cnt').textContent=''; return; }
+  const q = $('#q').value.trim().toLowerCase(), only = $('#soloAct').checked;
+  let rows = data.rows.map(r => ({...r, tot: r.s1 + r.s2 + r.rec}));
+  if (selectedGroup !== null) {
+    rows = rows.filter(r => String(r.cod_tra) === selectedGroup);
+  } else if (q) {
+    rows = rows.filter(r => String(r.cod_tra).toLowerCase().includes(q) || r.delegado.toLowerCase().includes(q));
+  }
+  if (only) rows = rows.filter(r => r.tot > 0);
+  rows.sort((a,b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * sortDir);
+  const sum = (k) => data.rows.reduce((s,r) => s + (k==='tot' ? r.s1+r.s2+r.rec : r[k]), 0);
+  const c = data.control, cols = COLS();
+  const head = cols.map(([k,l,,n]) => `<th class="${n?'n':''}" data-k="${k}">${l}${k===sortKey?(sortDir>0?' ▲':' ▼'):''}</th>`).join('');
+  const line = (cls, label, o) => `<tr class="${cls}"><td>${label}</td><td></td>` +
+    cols.slice(2).map(([k,,d]) => `<td class="n">${fmt(o[k], d)}</td>`).join('') + '</tr>';
+  const tot = {s1:sum('s1'),s2:sum('s2'),rec:sum('rec'),tot:sum('tot')};
+  const ctl = {s1:c.s1,s2:c.s2,rec:c.rec,tot:c.s1+c.s2+c.rec};
+  const body = rows.map(r => '<tr>' + cols.map(([k,,d,n]) =>
+    `<td class="${n?'n':''}">${n ? fmt(r[k], d) : r[k]}</td>`).join('') + '</tr>').join('');
+  $('#tbl').innerHTML = `<thead><tr>${head}</tr></thead><tbody>${line('tot','Total grupos',tot)}${line('ctl','Control: total catastro filtrado',ctl)}${body}</tbody>`;
+  $('#tbl').querySelectorAll('th').forEach(th => th.onclick = () => {
+    const k = th.dataset.k; sortDir = (k===sortKey) ? -sortDir : 1; sortKey = k; drawSummary(); });
+  $('#cnt').textContent = rows.length + ' de ' + data.rows.length + ' grupos';
+}
+$('#q').oninput = () => { selectedGroup = null; drawSummary(); };
+$('#soloAct').onchange = drawSummary;
+$('#btnApply').onclick = async () => {
+  if (await run()) showView('resumen');
+};
+
+function connectionMessage(text, kind='err') {
+  const el = $('#connMsg');
+  el.textContent = text;
+  el.className = `msg ${kind}`;
+  el.hidden = !text;
+}
+$('#btnTest').onclick = async () => {
+  connectionMessage('');
+  $('#btnTest').disabled = true;
+  $('#estado').textContent = 'Probando conexión…';
+  try {
+    const r = await api('/api/test');
+    const missing = r.esperadas.filter(t => !r.tablas.includes(t));
+    if (missing.length) throw new Error(`Conexión correcta, pero no se encontraron las tablas: ${missing.join(', ')}`);
+    $('#estado').textContent = `Conectado a ${r.db}`;
+    connectionMessage(`Conexión correcta a ${r.db}; tablas encontradas.`, 'ok');
+  } catch (e) {
+    $('#estado').textContent = 'Sin conexión';
+    connectionMessage(e.message);
+  }
+  $('#btnTest').disabled = false;
+};
+
+$('#btnCsv').onclick = () => {
+  if (!data) return;
+  const cols = COLS();
+  const lines = [cols.map(c => c[1]).join(';')];
+  data.rows.forEach(r => lines.push([r.cod_tra, '"'+r.delegado.replace(/"/g,'""')+'"', r.s1, r.s2, r.rec, r.s1+r.s2+r.rec]
+    .map(v => typeof v==='number' && !Number.isInteger(v) ? String(v).replace('.',',') : v).join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+lines.join('\n')], {type:'text/csv'}));
+  a.download = 'grupos_trabajo.csv'; a.click();
+};
+
+/* ---------- búsqueda de cañeros ---------- */
+function codeMessage(text, kind='err') {
+  const el = $('#codigosMsg');
+  el.textContent = text;
+  el.className = `msg ${kind}`;
+  el.hidden = !text;
+}
+function renderCodigos(rows) {
+  const table = $('#codigosTable');
+  table.replaceChildren();
+  const columns = [['cod_ca','Código cañero'],['nom_ca','Nombre cañero'],['cod_tra','cod_tra']];
+  const thead = document.createElement('thead');
+  const heading = document.createElement('tr');
+  columns.forEach(([, label]) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    heading.append(th);
+  });
+  thead.append(heading);
+  table.append(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.className = 'selectable';
+    tr.tabIndex = 0;
+    tr.setAttribute('role', 'button');
+    tr.setAttribute('aria-label', `Mostrar grupo de trabajo ${row.cod_tra}`);
+    columns.forEach(([key]) => {
+      const td = document.createElement('td');
+      td.textContent = row[key] == null ? '' : String(row[key]);
+      tr.append(td);
+    });
+    const selectGroup = () => showCodigosGroup(row.cod_tra);
+    tr.addEventListener('click', selectGroup);
+    tr.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectGroup();
+      }
+    });
+    tbody.append(tr);
+  });
+  table.append(tbody);
+}
+async function searchCodigos(event) {
+  event.preventDefault();
+  $('#codigosMatchesPanel').hidden = false;
+  $('#codigosGroupPanel').hidden = true;
+  const codCa = $('#codCa').value.trim();
+  const nomCa = $('#nomCa').value.trim();
+  $('#codigosCount').textContent = '';
+  $('#codigosTable').replaceChildren();
+  codeMessage('');
+  if (!codCa && !nomCa) {
+    codeMessage('Ingresa un código cañero o un nombre para buscar.');
+    return;
+  }
+  $('#btnSearchCodigos').disabled = true;
+  try {
+    const r = await api('/api/codigos/search', {cod_ca:codCa, nom_ca:nomCa});
+    renderCodigos(r.rows);
+    $('#codigosCount').textContent = `${r.total.toLocaleString('es-BO')} coincidencias`;
+    if (!r.total) codeMessage('No se encontraron coincidencias.', 'ok');
+    else if (r.rows.length < r.total) codeMessage(`Se muestran ${r.rows.length.toLocaleString('es-BO')} de ${r.total.toLocaleString('es-BO')} coincidencias.`, 'ok');
+  } catch (e) {
+    codeMessage(e.message);
+  } finally {
+    $('#btnSearchCodigos').disabled = false;
+  }
+}
+$('#formCodigos').onsubmit = searchCodigos;
+$('#btnClearCodigos').onclick = () => {
+  $('#codCa').value = '';
+  $('#nomCa').value = '';
+  $('#codigosCount').textContent = '';
+  $('#codigosTable').replaceChildren();
+  codeMessage('');
+  $('#codigosMatchesPanel').hidden = false;
+  $('#codigosGroupPanel').hidden = true;
+};
+function renderCodigosGroup(rows) {
+  const table = $('#codigosGroupTable');
+  table.replaceChildren();
+  const columns = [['cod_ca','Código cañero'],['nom_ca','Nombre cañero'],['cod_tra','cod_tra']];
+  const thead = document.createElement('thead');
+  const heading = document.createElement('tr');
+  columns.forEach(([, label]) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    heading.append(th);
+  });
+  thead.append(heading);
+  table.append(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    columns.forEach(([key]) => {
+      const td = document.createElement('td');
+      td.textContent = row[key] == null ? '' : String(row[key]);
+      tr.append(td);
+    });
+    tbody.append(tr);
+  });
+  table.append(tbody);
+}
+function groupMessage(text, kind='err') {
+  const el = $('#codigosGroupMsg');
+  el.textContent = text;
+  el.className = `msg ${kind}`;
+  el.hidden = !text;
+}
+async function showCodigosGroup(codTra) {
+  $('#codigosGroupTitle').textContent = `Grupo de trabajo ${codTra}`;
+  $('#codigosGroupCount').textContent = 'Cargando grupo…';
+  $('#codigosGroupTable').replaceChildren();
+  groupMessage('');
+  $('#codigosGroupPanel').hidden = false;
+  $('#codigosMatchesPanel').hidden = true;
+  try {
+    const r = await api('/api/codigos/group', {cod_tra:String(codTra)});
+    renderCodigosGroup(r.rows);
+    $('#codigosGroupCount').textContent = `${r.rows.length.toLocaleString('es-BO')} cañeros en el grupo`;
+    if (!r.rows.length) groupMessage('No se encontraron cañeros para este grupo.');
+  } catch (e) {
+    $('#codigosGroupCount').textContent = '';
+    groupMessage(e.message);
+  }
+}
+$('#btnBackCodigos').onclick = () => {
+  $('#codigosGroupPanel').hidden = true;
+  $('#codigosMatchesPanel').hidden = false;
+};
+
+$('#tabs').onclick = (e) => {
+  const t = e.target.dataset.t; if (!t) return;
+  tab = t;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b===e.target));
+  $('#v-resumen').hidden = t !== 'resumen';
+  $('#v-codigos').hidden = t !== 'data_codigos_trabajo';
+};
+
+/* ---------- inicio ---------- */
+drawCrit(); drawSummary();
+run();
+</script>
+</body>
+</html>

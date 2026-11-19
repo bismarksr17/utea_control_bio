@@ -1,0 +1,14 @@
+{
+  "name": "grupos-trabajo-web",
+  "version": "1.0.0",
+  "description": "Visor web de Área de catastro por grupo de trabajo (PostgreSQL)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "pg": "^8.11.0"
+  }
+}
